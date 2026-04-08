@@ -139,9 +139,9 @@ Admin dashboard
 Currently using local MongoDB
 Backend is under active development
 API structure may evolve
-👨‍💻 Author
 
 ---
+👨‍💻 Author
 
 Rahul Shaw
 Backend Developer
