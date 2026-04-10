@@ -1,10 +1,22 @@
 const User = require("../user/user.model");
+const Driver = require("../driver/driver.model");
+const Carrier = require("../carrier/carrier.model");
+
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
 
 exports.register = async (req, res) => {
   try {
-    const { email, password, role } = req.body;
+    const {
+      email,
+      password,
+      role,
+      firstName,
+      lastName,
+      licenseType,
+      dotNumber,
+      companyName,
+    } = req.body;
 
     const existingUser = await User.findOne({ email });
     if (existingUser) {
@@ -16,10 +28,44 @@ exports.register = async (req, res) => {
     const user = await User.create({
       email,
       password: hashedPassword,
-      role
-    }); 
+      role,
+    });
 
-    res.status(201).json({ msg: "User registered successfully", user });
+    if (role === "driver") {
+      await Driver.create({
+        user: user._id,
+        firstName,
+        lastName,
+        licenseType,
+      });
+    }
+
+    if (role === "carrier") {
+      await Carrier.create({
+        user: user._id,
+        dotNumber,
+        companyName,
+      });
+    }
+
+    let profile = null;
+    if (user.role === "driver") {
+      profile = await Driver.findOne({ user: user._id });
+    }
+
+    if (user.role === "carrier") {
+      profile = await Carrier.findOne({ user: user._id });
+    }
+
+    res.status(201).json({
+      msg: "User registered successfully",
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        profile,
+      },
+    });
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }
@@ -42,11 +88,31 @@ exports.login = async (req, res) => {
     const token = jwt.sign(
       { id: user._id, role: user.role },
       process.env.JWT_SECRET,
-      { expiresIn: "1d" }
+      { expiresIn: "1d" },
     );
 
-    res.json({ msg: "Login successful", token });
+    let profile = null;
+
+    // 🔥 Attach role-based profile
+    if (user.role === "driver") {
+      profile = await Driver.findOne({ user: user._id });
+    }
+
+    if (user.role === "carrier") {
+      profile = await Carrier.findOne({ user: user._id });
+    }
+
+    res.json({
+      msg: "Login successful",
+      token,
+      user: {
+        id: user._id,
+        email: user.email,
+        role: user.role,
+        profile,
+      },
+    });
   } catch (err) {
     res.status(500).json({ msg: err.message });
   }
-};  
+};

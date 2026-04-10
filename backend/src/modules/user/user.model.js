@@ -15,10 +15,6 @@ const userSchema = new mongoose.Schema(
       type: String,
       enum: ["driver", "carrier", "broker", "admin", "compliance"],
       default: "driver"
-    },
-    isVerified: {
-      type: Boolean,
-      default: false
     }
   },
   { timestamps: true }
