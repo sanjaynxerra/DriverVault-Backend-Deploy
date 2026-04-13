@@ -5,19 +5,26 @@ const userSchema = new mongoose.Schema(
     email: {
       type: String,
       required: true,
-      unique: true
+      unique: true,
+      lowercase: true,
+      trim: true,
     },
+
     password: {
       type: String,
-      required: true
+      required: true,
+      minlength: 6,
     },
+
     role: {
       type: String,
-      enum: ["driver", "carrier", "broker", "admin", "compliance"],
-      default: "driver"
-    }
+      enum: ["driver", "carrier"],
+      required: true,
+    },
   },
   { timestamps: true }
 );
 
-module.exports = mongoose.model("User", userSchema);
+// ✅ Prevent overwrite error
+module.exports =
+  mongoose.models.User || mongoose.model("User", userSchema);
