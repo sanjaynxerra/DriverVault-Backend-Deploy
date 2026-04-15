@@ -224,7 +224,7 @@ exports.createCredential = async (req, res) => {
 
 // ================= GET ALL CREDENTIAL =================
 exports.getCredentials = async (req, res) => {
-  const credentials = await Credential.find({
+  const credentials = await Credential.find({ 
     driver: req.user.id,
     isActive: true, // 🔥 important for renewal system
   }).sort({ createdAt: -1 });
