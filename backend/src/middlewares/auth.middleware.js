@@ -21,13 +21,13 @@ exports.protect = (req, res, next) => {
       return next(); // ✅ important: return
     } catch (error) {
       return res.status(401).json({
-        msg: "Not authorized, token failed"
+        msg: "Not authorized, token failed",
       });
     }
   }
 
   // No token
   return res.status(401).json({
-    msg: "No token, authorization denied"
+    msg: "No token, authorization denied",
   });
 };

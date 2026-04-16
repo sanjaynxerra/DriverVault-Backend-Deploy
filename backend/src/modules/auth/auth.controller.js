@@ -60,7 +60,7 @@ exports.register = async (req, res) => {
         id: user._id,
         email: user.email,
         role: user.role,
-        profile, 
+        profile,
       },
     });
   } catch (error) {

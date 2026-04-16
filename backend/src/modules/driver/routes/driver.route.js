@@ -11,6 +11,13 @@ const {
 const { updateProfileSchema } = require("../validators/driver.validator");
 const validate = require("../../../middlewares/validate.middleware");
 
+const performanceRoutes = require("./performance.routes");
+const credentialRoutes = require("./credential.routes");
+
+// mounting credential and performance routes
+router.use("/performance", performanceRoutes);
+router.use("/credentials", credentialRoutes);
+
 // ================= PRIVATE ROUTES =================
 
 // 🔐 Get own profile
@@ -29,35 +36,6 @@ router.put(
   validate(updateProfileSchema),
   upload.single("profilePhoto"),
   asyncHandler(driverController.updateDriverProfile),
-);
-
-// ================= CREDENTIAL ROUTE =================
-
-// ================= CREATE CREDENTIAL  =================
-router.post(
-  "/credentials",
-  protect,
-  authorizeRoles("driver"),
-  validate(createCredentialSchema),
-  upload.single("document"),
-  asyncHandler(driverController.createCredential),
-);
-// ================= GET ALL CREDENTIAL =================
-
-router.get(
-  "/credentials",
-  protect,
-  authorizeRoles("driver"),
-  driverController.getCredentials,
-);
-
-// ================= GET SINGLE CREDENTIAL =================
-
-router.get(
-  "/credentials/:id",
-  protect,
-  authorizeRoles("driver"),
-  driverController.getSingleCredential,
 );
 
 // ================= PUBLIC ROUTE =================

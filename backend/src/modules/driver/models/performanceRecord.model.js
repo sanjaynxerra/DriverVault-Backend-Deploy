@@ -1,10 +1,12 @@
 const mongoose = require("mongoose");
+
 const performanceRecordSchema = new mongoose.Schema({
   driver: {
     type: mongoose.Schema.Types.ObjectId,
-    ref: "User",
+    ref: "Driver",
     required: true,
   },
+
   type: {
     type: String,
     required: true,
@@ -15,20 +17,28 @@ const performanceRecordSchema = new mongoose.Schema({
       "incident",
       "attendance",
     ],
-    category: {
-      type: String,
-      enum: ["safety", "reliability", "training"],
-      required: true,
-    },
-    impact: {
-      type: Number, // +2, -3, etc
-      required: true,
-    },
-
-    date: {
-      type: Date,
-      default: Date.now,
-    },
-    description: String,
   },
+
+  category: {
+    type: String,
+    enum: ["safety", "reliability", "training"],
+    required: true,
+  },
+
+  impact: {
+    type: Number, // +2, -3, etc
+    required: true,
+  },
+
+  date: {
+    type: Date,
+    default: Date.now,
+  },
+
+  description: String,
 });
+
+module.exports = mongoose.model(
+  "PerformanceRecord",
+  performanceRecordSchema
+);
