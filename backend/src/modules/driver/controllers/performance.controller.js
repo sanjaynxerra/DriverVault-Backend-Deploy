@@ -13,13 +13,18 @@ exports.getPerformance = async (req, res) => {
   const driverProfile = await Driver.findOne({
     user: req.user.id,
   });
+  if (!driverProfile) {
+    return res.status(404).json({
+      message: "Driver profile not found",
+    });
+  }
 
   // ✅ Fetch records
   const records = await PerformanceRecord.find({
     driver: driverProfile._id,
     isActive: true,
     status: "verified",
-  });
+  }).sort({ date: 1 });
   // ✅ Get overall scores from service
   const scores = calculateScores(records);
 
@@ -106,15 +111,20 @@ exports.getPerformance = async (req, res) => {
 
 // ================= GET ONLY RECORDS =================
 exports.getPerformanceRecords = async (req, res) => {
-  try {
-    const records = await PerformanceRecord.find({
-      driver: req.user.id,
-      isActive: true,
-      status: "verified",
-    }).sort({ date: -1 });
-
-    res.json(records);
-  } catch (err) {
-    res.status(500).json({ message: "Server error" });
+  const driverProfile = await Driver.findOne({
+    user: req.user.id,
+  });
+  if (!driverProfile) {
+    return res.status(404).json({
+      message: "Driver profile not found",
+    });
   }
+
+  const records = await PerformanceRecord.find({
+    driver: driverProfile._id,
+    isActive: true,
+    status: "verified",
+  }).sort({ date: -1 });
+
+  res.json(records);
 };

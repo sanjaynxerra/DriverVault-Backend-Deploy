@@ -12,21 +12,6 @@ const employmentSchema = new mongoose.Schema(
   { _id: false },
 );
 
-// ⚙️ Performance (System Generated)
-const performanceSchema = new mongoose.Schema(
-  {
-    safetyScore: Number,
-    reliabilityScore: Number,
-    breakdown: {
-      cleanInspections: Number,
-      preventableIncidents: Number,
-      safetyTraining: Number,
-      violations: Number,
-    },
-  },
-  { _id: false },
-);
-
 const driverSchema = new mongoose.Schema(
   {
     user: {
@@ -80,9 +65,6 @@ const driverSchema = new mongoose.Schema(
 
     // 🔴 RESTRICTED
     employmentHistory: [employmentSchema],
-
-    // ⚙️ SYSTEM
-    performance: performanceSchema,
   },
   { timestamps: true },
 );
