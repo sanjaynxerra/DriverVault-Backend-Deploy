@@ -3,25 +3,33 @@ const AccessRequest = require("../../common/models/accessRequest.model");
 exports.requestAccess = async (req, res) => {
   const { driverId } = req.body;
 
-  // prevent duplicate
-  const existing = await AccessRequest.findOne({
+  // 🔍 check existing request
+  let request = await AccessRequest.findOne({
     driver: driverId,
     carrier: req.user.id,
-    status: "pending",
   });
 
-  if (existing) {
-    return res.status(400).json({
-      message: "Request already pending",
+  if (request) {
+    // 🔁 reuse existing
+    request.status = "pending";
+    request.complianceAccepted = false;
+    request.expiresAt = null;
+
+    await request.save();
+
+    return res.json({
+      message: "Access request re-sent",
+      request,
     });
   }
 
-  const request = await AccessRequest.create({
+  // 🆕 create new only if none exists
+  request = await AccessRequest.create({
     driver: driverId,
     carrier: req.user.id,
   });
 
-  res.json({
+  res.status(201).json({
     message: "Access request sent",
     request,
   });

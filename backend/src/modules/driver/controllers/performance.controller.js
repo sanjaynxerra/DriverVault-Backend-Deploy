@@ -51,3 +51,16 @@ exports.getPerformanceRecords = async (req, res) => {
 
   res.json(records);
 };
+
+// ================= CARRIER/ADMIN ACCESS DRIVER PERFORMANCE =================
+exports.getDriverPerformanceById = async (req, res) => {
+  const { driverId } = req.params;
+
+  const { records, scores, history } = await getDriverPerformanceData(driverId);
+
+  res.json({
+    scores,
+    history,
+    records,
+  });
+};

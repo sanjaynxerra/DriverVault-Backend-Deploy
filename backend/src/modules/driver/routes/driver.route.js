@@ -15,6 +15,7 @@ const validate = require("../../../middlewares/validate.middleware");
 const performanceRoutes = require("./performance.routes");
 const credentialRoutes = require("./credential.routes");
 const accessRequestRoutes = require("./accessRequest.routes");
+const driverPublicRoutes = require("./driverPublic.route");
 
 // ================= SUB ROUTES MOUNTING=================
 

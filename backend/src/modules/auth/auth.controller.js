@@ -24,6 +24,17 @@ exports.register = async (req, res) => {
       return res.status(400).json({ msg: "User already exists" });
     }
 
+    // 🔥 CHECK CARRIER FIRST
+    if (role === "carrier") {
+      const existingCarrier = await Carrier.findOne({ dotNumber });
+
+      if (existingCarrier) {
+        return res.status(400).json({
+          msg: "Carrier with this DOT number already exists",
+        });
+      }
+    }
+
     // ✅ Hash password
     const hashedPassword = await bcrypt.hash(password, 10);
 
@@ -36,7 +47,6 @@ exports.register = async (req, res) => {
 
     let profile = null;
 
-    // ✅ Create role-based profile (ONLY ONE DB CALL PER MODEL)
     if (role === "driver") {
       profile = await Driver.create({
         user: user._id,
