@@ -4,22 +4,36 @@ const asyncHandler = require("express-async-handler");
 const { protect } = require("../../../middlewares/auth.middleware");
 const { authorizeRoles } = require("../../../middlewares/role.middleware");
 const validate = require("../../../middlewares/validate.middleware");
-const {
-  handleAccessRequest,
-} = require("../controllers/accessRequest.controller");
+const accessController = require("../controllers/accessRequest.controller");
 const {
   handleAccessSchema,
 } = require("../../common/validators/accessRequest.validator");
 
 // ================= DRIVER =================
 
-// Approve / Reject request
+// GET ALL REQUEST
+router.get(
+  "/access-requests",
+  protect,
+  authorizeRoles("driver"),
+  asyncHandler(accessController.getDriverAccessRequests),
+);
+
+// GET REQUEST BY SINGLE ID
+router.get(
+  "/access-request/:id",
+  protect,
+  authorizeRoles("driver"),
+  asyncHandler(accessController.getAccessRequestById),
+);
+
+// APPROVE OR REJECT REQUEST BY ID  
 router.patch(
-  "/:id",
+  "/access-request/:id",
   protect,
   authorizeRoles("driver"),
   validate(handleAccessSchema),
-  asyncHandler(handleAccessRequest),
+  asyncHandler(accessController.handleAccessRequest),
 );
 
 module.exports = router;

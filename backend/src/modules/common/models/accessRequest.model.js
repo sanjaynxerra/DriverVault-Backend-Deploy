@@ -7,9 +7,10 @@ const accessRequestSchema = new mongoose.Schema(
       ref: "Driver",
       required: true,
     },
-    carrier: {
+
+    carrierProfile: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Carrier",
       required: true,
     },
 
@@ -27,14 +28,19 @@ const accessRequestSchema = new mongoose.Schema(
     expiresAt: {
       type: Date,
     },
+
+    notes: {
+      type: String,
+      trim: true,
+    },
   },
-  { timestamps: true }
+  { timestamps: true },
 );
 
-//  prevent duplicate active request
+// 🔥 UPDATE INDEX
 accessRequestSchema.index(
-  { driver: 1, carrier: 1 },
-  { unique: true, partialFilterExpression: { status: "pending" } }
+  { driver: 1, carrierProfile: 1 },
+  { unique: true, partialFilterExpression: { status: "pending" } },
 );
 
 module.exports = mongoose.model("AccessRequest", accessRequestSchema);

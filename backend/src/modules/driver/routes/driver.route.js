@@ -21,7 +21,7 @@ const driverPublicRoutes = require("./driverPublic.route");
 
 router.use("/performance", performanceRoutes);
 router.use("/credentials", credentialRoutes);
-router.use("/access-request", accessRequestRoutes);
+router.use("/", accessRequestRoutes);
 
 // ================= PRIVATE ROUTES =================
 
