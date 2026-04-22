@@ -1,7 +1,7 @@
 const express = require("express");
 const cors = require("cors");
-const testRoutes = require("./routes/test.route");
-const errorHandler = require("./middlewares/error.middleware");
+const testRoutes = require("./src/routes/test.route");
+const errorHandler = require("./src/middlewares/error.middleware");
 
 const app = express();
 app.use(express.urlencoded({ extended: true }));
@@ -14,7 +14,7 @@ app.get("/", (req, res) => {
 });
 
 // routes
-const routes = require("./routes");
+const routes = require("./src/routes");
 app.use("/api", routes);
 
 app.use("/api/test", testRoutes);
