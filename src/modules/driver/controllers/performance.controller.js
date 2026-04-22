@@ -1,66 +1,96 @@
 const PerformanceRecord = require("../models/performanceRecord.model");
 const mongoose = require("mongoose");
+
 const {
-  calculateScores,
-  getDecayWeight,
   getDriverPerformanceData,
 } = require("../../../services/performance.service");
 
 const Driver = require("../models/driver.model");
 
 // ================= GET FULL PERFORMANCE =================
-
 exports.getPerformance = async (req, res) => {
-  const driverProfile = await Driver.findOne({
-    user: req.user.id,
-  });
+  try {
+    const driver = await Driver.findOne({ user: req.user.id });
 
-  if (!driverProfile) {
-    return res.status(404).json({
-      message: "Driver profile not found",
+    if (!driver) {
+      return res.status(404).json({
+        message: "Driver profile not found",
+      });
+    }
+
+    const { records, scores, history } = await getDriverPerformanceData(
+      driver._id,
+    );
+
+    return res.json({
+      scores,
+      history,
+      records,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to fetch performance data",
     });
   }
-
-  const { records, scores, history } = await getDriverPerformanceData(
-    driverProfile._id,
-  );
-
-  res.json({
-    scores,
-    history,
-    records,
-  });
 };
 
 // ================= GET ONLY RECORDS =================
 exports.getPerformanceRecords = async (req, res) => {
-  const driverProfile = await Driver.findOne({
-    user: req.user.id,
-  });
-  if (!driverProfile) {
-    return res.status(404).json({
-      message: "Driver profile not found",
+  try {
+    const driver = await Driver.findOne({ user: req.user.id });
+
+    if (!driver) {
+      return res.status(404).json({
+        message: "Driver profile not found",
+      });
+    }
+
+    const records = await PerformanceRecord.find({
+      driver: driver._id,
+      isActive: true,
+      status: "verified",
+    }).sort({ date: -1 });
+
+    return res.json(records);
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to fetch performance records",
     });
   }
-
-  const records = await PerformanceRecord.find({
-    driver: driverProfile._id,
-    isActive: true,
-    status: "verified",
-  }).sort({ date: -1 });
-
-  res.json(records);
 };
 
-// ================= CARRIER/ADMIN ACCESS DRIVER PERFORMANCE =================
+// ================= CARRIER / ADMIN ACCESS  =================
 exports.getDriverPerformanceById = async (req, res) => {
-  const { driverId } = req.params;
+  try {
+    const { driverId } = req.params;
 
-  const { records, scores, history } = await getDriverPerformanceData(driverId);
+    // 🔥 Validate ObjectId
+    if (!mongoose.Types.ObjectId.isValid(driverId)) {
+      return res.status(400).json({
+        message: "Invalid driver ID",
+      });
+    }
 
-  res.json({
-    scores,
-    history,
-    records,
-  });
+    const driver = await Driver.findById(driverId);
+
+    if (!driver) {
+      return res.status(404).json({
+        message: "Driver not found",
+      });
+    }
+
+    const { records, scores, history } = await getDriverPerformanceData(
+      driver._id,
+    );
+
+    return res.json({
+      scores,
+      history,
+      records,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to fetch driver performance",
+    });
+  }
 };

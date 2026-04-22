@@ -5,6 +5,7 @@ const { protect } = require("../../../middlewares/auth.middleware");
 const { authorizeRoles } = require("../../../middlewares/role.middleware");
 const asyncHandler = require("express-async-handler");
 const upload = require("../../../middlewares/upload.middleware");
+
 const {
   createCredentialSchema,
 } = require("../validators/credential.validator");
@@ -16,12 +17,16 @@ const performanceRoutes = require("./performance.routes");
 const credentialRoutes = require("./credential.routes");
 const accessRequestRoutes = require("./accessRequest.routes");
 const driverPublicRoutes = require("./driverPublic.route");
+const employmentRoutes = require("./employment.routes");
+const disputeRoutes = require("./dispute.routes");
 
 // ================= SUB ROUTES MOUNTING=================
 
 router.use("/performance", performanceRoutes);
 router.use("/credentials", credentialRoutes);
 router.use("/", accessRequestRoutes);
+router.use("/employment", employmentRoutes);
+router.use("/disputes", disputeRoutes);
 
 // ================= PRIVATE ROUTES =================
 
@@ -38,8 +43,8 @@ router.put(
   "/update",
   protect,
   authorizeRoles("driver"),
-  validate(updateProfileSchema),
   upload.single("profilePhoto"),
+  validate(updateProfileSchema),
   asyncHandler(driverController.updateDriverProfile),
 );
 

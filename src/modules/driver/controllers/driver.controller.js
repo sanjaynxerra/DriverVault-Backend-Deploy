@@ -1,19 +1,26 @@
 const Driver = require("../models/driver.model");
 const cloudinary = require("cloudinary").v2;
 const Credential = require("../models/credential.model");
+const Employment = require("../models/employment.model");
+const PerformanceRecord = require("../models/performanceRecord.model");
+
+const {
+  getDriverPerformanceData,
+} = require("../../../services/performance.service");
 
 // ================= PUBLIC PROFILE =================
 exports.getPublicDriverProfile = async (req, res) => {
   const { id } = req.params;
 
-  const driver = await Driver.findById(id);
+  const driver = await Driver.findById(id).populate("user");
 
   if (!driver) {
     res.status(404);
     throw new Error("Driver not found");
   }
 
-  // ✅ SAFE RESPONSE ONLY
+  const performanceData = await getDriverPerformanceData(driver._id);
+
   const publicData = {
     id: driver._id,
     profilePhoto: driver.profilePhoto || null,
@@ -29,13 +36,12 @@ exports.getPublicDriverProfile = async (req, res) => {
     availability: driver.availability || null,
     bio: driver.bio || null,
 
-    //  PERFORMANCE (summary only)
-    performance: driver.performance
-      ? {
-          safetyScore: driver.performance.safetyScore,
-          reliabilityScore: driver.performance.reliabilityScore,
-        }
-      : null,
+    performance: {
+      safetyScore: performanceData.scores.safety,
+      reliabilityScore: performanceData.scores.reliability,
+      trainingScore: performanceData.scores.training,
+      overallScore: performanceData.scores.overall,
+    },
   };
 
   res.status(200).json({
@@ -44,7 +50,7 @@ exports.getPublicDriverProfile = async (req, res) => {
   });
 };
 
-// =================  DRIVER PRIVATE PROFILE =================
+// ================= DRIVER PRIVATE PROFILE =================
 exports.getDriverProfile = async (req, res) => {
   const driver = await Driver.findOne({ user: req.user.id }).populate(
     "user",
@@ -52,51 +58,54 @@ exports.getDriverProfile = async (req, res) => {
   );
 
   if (!driver) {
-    res.status(404).json({ msg: "Driver profile not found" });
+    res.status(404);
+    throw new Error("Driver profile not found");
   }
 
-  //  ✅ Safe handling for optional fields
+  const employmentHistory = await Employment.find({
+    driver: driver._id,
+  }).sort({ startDate: -1 });
+
+  const { scores, history } = await getDriverPerformanceData(driver._id);
 
   const response = {
     id: driver._id,
     email: driver.user?.email || null,
 
-    // Basic
-
     profilePhoto: driver.profilePhoto || null,
     firstName: driver.firstName,
     lastName: driver.lastName,
 
-    //Contact
     phone: driver.phone || null,
 
-    //Location
     location: {
       city: driver.location?.city || null,
       state: driver.location?.state || null,
       zipCode: driver.location?.zipCode || null,
     },
 
-    //Professional
     licenseType: driver.licenseType || null,
-    experienceYears: driver.experienceYears || null,
+    experienceYears: driver.experienceYears || 0,
     availability: driver.availability || null,
     bio: driver.bio || null,
 
-    // 🔴 RESTRICTED (only owner can see )
-    employmentHistory: driver.employmentHistory || [],
-    // ⚙️ SYSTEM
-    performance: driver.performance || null,
+    employmentHistory,
+
+    performance: {
+      scores,
+      history,
+    },
 
     createdAt: driver.createdAt,
   };
 
-  return res
-    .status(200)
-    .json({ msg: "Driver Profile Fetched", data: response });
+  return res.status(200).json({
+    msg: "Driver Profile Fetched",
+    data: response,
+  });
 };
 
-// =================  UPDATE DRIVER PROFILE =================
+// ================= UPDATE DRIVER PROFILE =================
 exports.updateDriverProfile = async (req, res) => {
   const driver = await Driver.findOne({ user: req.user.id });
 
@@ -104,7 +113,6 @@ exports.updateDriverProfile = async (req, res) => {
     return res.status(404).json({ message: "Driver not found" });
   }
 
-  // ✅ Allowed fields only
   const allowedFields = [
     "firstName",
     "lastName",
@@ -115,7 +123,6 @@ exports.updateDriverProfile = async (req, res) => {
     "bio",
   ];
 
-  // ✅ Update safe fields
   Object.keys(req.body).forEach((key) => {
     if (
       allowedFields.includes(key) &&
@@ -126,13 +133,10 @@ exports.updateDriverProfile = async (req, res) => {
     }
   });
 
-  //  HANDLE LOCATION
-
+  // LOCATION
   const location = req.body.location || {};
   const city = location.city || req.body["location.city"] || req.body.city;
-
   const state = location.state || req.body["location.state"] || req.body.state;
-
   const zipCode =
     location.zipCode || req.body["location.zipCode"] || req.body.zipCode;
 
@@ -142,21 +146,39 @@ exports.updateDriverProfile = async (req, res) => {
   if (state) driver.location.state = state;
   if (zipCode) driver.location.zipCode = zipCode;
 
-  //  CLOUDINARY IMAGE URL
+  // CLOUDINARY
   if (req.file) {
     if (driver.profilePhotoId) {
       await cloudinary.uploader.destroy(driver.profilePhotoId);
     }
-    // Save New Profile Photo id means filename
-    driver.profilePhoto = req.file.path; // Cloudinary URL
+
+    driver.profilePhoto = req.file.path;
     driver.profilePhotoId = req.file.filename;
   }
 
   await driver.save();
 
+  // 🔥 FETCH EMPLOYMENT SEPARATELY
+  const employmentHistory = await Employment.find({
+    driver: driver._id,
+  });
+
   return res.status(200).json({
     message: "Profile updated successfully",
-    data: driver,
+    data: {
+      id: driver._id,
+      firstName: driver.firstName,
+      lastName: driver.lastName,
+      phone: driver.phone,
+      location: driver.location,
+      licenseType: driver.licenseType,
+      experienceYears: driver.experienceYears,
+      availability: driver.availability,
+      bio: driver.bio,
+      profilePhoto: driver.profilePhoto,
+
+      // ✅ NOW CORRECT
+      employmentHistory,
+    },
   });
 };
-

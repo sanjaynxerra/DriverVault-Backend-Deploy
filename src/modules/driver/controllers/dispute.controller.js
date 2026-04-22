@@ -1,0 +1,246 @@
+const mongoose = require("mongoose");
+
+const Dispute = require("../../common/models/dispute.model");
+const Driver = require("../models/driver.model");
+
+// ================= CONSTANTS =================
+
+// ✅ allowed categories (underscore only)
+const allowedCategories = [
+  "safety_record",
+  "reliability",
+  "training",
+  "employment_history",
+  "credential",
+  "other",
+];
+
+// ✅ category → internal category
+const mapCategory = (category) => {
+  const map = {
+    safety_record: "performance",
+    reliability: "performance",
+    training: "performance",
+
+    employment_history: "employment",
+    credential: "credential",
+
+    other: "other",
+  };
+
+  return map[category];
+};
+
+// ✅ category → model
+const detectModel = (category) => {
+  if (
+    category === "safety_record" ||
+    category === "reliability" ||
+    category === "training"
+  ) {
+    return "PerformanceRecord";
+  }
+
+  if (category === "employment_history") {
+    return "Employment";
+  }
+
+  if (category === "credential") {
+    return "Credential";
+  }
+
+  return null;
+};
+
+// ================= CREATE DISPUTE =================
+
+exports.createDispute = async (req, res) => {
+  try {
+    const { title, description, category, relatedRecord } = req.body;
+
+    //  validate required fields
+    if (!title || !description || !category) {
+      return res.status(400).json({
+        message: "title, description, category are required",
+      });
+    }
+
+    //  strict category check
+    if (!allowedCategories.includes(category)) {
+      return res.status(400).json({
+        message: "Invalid category. Use underscore format.",
+      });
+    }
+
+    const driver = await Driver.findOne({ user: req.user.id });
+
+    if (!driver) {
+      return res.status(404).json({
+        message: "Driver not found",
+      });
+    }
+
+    const relatedModel = detectModel(category);
+
+    let record = null;
+
+    //  optional record validation
+    if (relatedModel && relatedRecord) {
+      if (!mongoose.Types.ObjectId.isValid(relatedRecord)) {
+        return res.status(400).json({
+          message: "Invalid relatedRecord ID",
+        });
+      }
+
+      const Model = mongoose.model(relatedModel);
+      record = await Model.findById(relatedRecord);
+
+      if (!record) {
+        return res.status(404).json({
+          message: "Related record not found",
+        });
+      }
+
+      // 🔐 ownership check
+      if (record.driver && record.driver.toString() !== driver._id.toString()) {
+        return res.status(403).json({
+          message: "Unauthorized record access",
+        });
+      }
+    }
+
+    const dispute = await Dispute.create({
+      driver: driver._id,
+      title,
+      description,
+      category: mapCategory(category), //  internal category
+      relatedModel,
+      relatedRecord: record ? record._id : null,
+    });
+
+    return res.status(201).json({
+      message: "Dispute submitted successfully",
+      data: dispute,
+    });
+  } catch (error) {
+    console.error("Create Dispute Error:", error);
+
+    return res.status(500).json({
+      message: "Failed to create dispute",
+    });
+  }
+};
+
+// ================= GET MY DISPUTES =================
+
+exports.getMyDisputes = async (req, res) => {
+  try {
+    const driver = await Driver.findOne({ user: req.user.id });
+
+    if (!driver) {
+      return res.status(404).json({
+        message: "Driver not found",
+      });
+    }
+
+    const disputes = await Dispute.find({
+      driver: driver._id,
+    })
+      .sort({ createdAt: -1 })
+      .populate("relatedRecord");
+
+    return res.status(200).json({
+      count: disputes.length,
+      data: disputes,
+    });
+  } catch (error) {
+    console.error("Get Disputes Error:", error);
+
+    return res.status(500).json({
+      message: "Failed to fetch disputes",
+    });
+  }
+};
+
+// ================= GET SINGLE DISPUTE =================
+
+exports.getDisputeById = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "Invalid dispute ID",
+      });
+    }
+
+    const driver = await Driver.findOne({ user: req.user.id });
+
+    const dispute = await Dispute.findOne({
+      _id: id,
+      driver: driver._id,
+    }).populate("relatedRecord");
+
+    if (!dispute) {
+      return res.status(404).json({
+        message: "Dispute not found",
+      });
+    }
+
+    return res.status(200).json({
+      data: dispute,
+    });
+  } catch (error) {
+    console.error("Get Single Dispute Error:", error);
+
+    return res.status(500).json({
+      message: "Failed to fetch dispute",
+    });
+  }
+};
+
+// ================= DELETE DISPUTE =================
+
+exports.deleteDispute = async (req, res) => {
+  try {
+    const { id } = req.params;
+
+    if (!mongoose.Types.ObjectId.isValid(id)) {
+      return res.status(400).json({
+        message: "Invalid dispute ID",
+      });
+    }
+
+    const driver = await Driver.findOne({ user: req.user.id });
+
+    const dispute = await Dispute.findOne({
+      _id: id,
+      driver: driver._id,
+    });
+
+    if (!dispute) {
+      return res.status(404).json({
+        message: "Dispute not found",
+      });
+    }
+
+    // 🔥 allow delete only if not processed
+    if (dispute.status !== "submitted") {
+      return res.status(400).json({
+        message: "Cannot delete processed dispute",
+      });
+    }
+
+    await dispute.deleteOne();
+
+    return res.status(200).json({
+      message: "Dispute deleted successfully",
+    });
+  } catch (error) {
+    console.error("Delete Dispute Error:", error);
+
+    return res.status(500).json({
+      message: "Failed to delete dispute",
+    });
+  }
+};

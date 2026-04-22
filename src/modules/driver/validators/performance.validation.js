@@ -1,9 +1,11 @@
-//READY BUT USED WHEN WORKING WITH ADMIN
-
 const Joi = require("joi");
 
 exports.createPerformanceSchema = Joi.object({
-  driver: Joi.string().required(),
+  // ✅ Proper ObjectId validation
+  driver: Joi.string()
+    .length(24)
+    .hex()
+    .required(),
 
   type: Joi.string()
     .valid(
@@ -11,15 +13,22 @@ exports.createPerformanceSchema = Joi.object({
       "training_completed",
       "late_delivery",
       "incident",
-      "attendance",
+      "attendance"
     )
     .required(),
 
-  category: Joi.string().valid("safety", "reliability", "training").required(),
+  category: Joi.string()
+    .valid("safety", "reliability", "training")
+    .required(),
 
-  impact: Joi.number().required(),
+  // ✅ Controlled range
+  impact: Joi.number()
+    .min(-20)
+    .max(20)
+    .required(),
 
   date: Joi.date().optional(),
 
-  description: Joi.string().allow("").optional(),
+  // ✅ Cleaner
+  description: Joi.string().max(300).optional(),
 });

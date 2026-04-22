@@ -9,7 +9,7 @@ const asyncHandler = require("express-async-handler");
 
 // ================= PERFORMANCE ROUTES =================
 
-// 🔥 FULL DASHBOARD (scores + history + records)
+// 🔥 FULL DASHBOARD (driver own)
 router
   .route("/")
   .get(
@@ -18,13 +18,22 @@ router
     asyncHandler(performanceController.getPerformance),
   );
 
-// 🔥 ONLY RECORDS (for table / pagination / admin use)
+// 🔥 ONLY RECORDS (driver own)
 router
   .route("/records")
   .get(
     protect,
     authorizeRoles("driver"),
     asyncHandler(performanceController.getPerformanceRecords),
+  );
+
+// 🔥 CARRIER / ADMIN VIEW DRIVER PERFORMANCE
+router
+  .route("/:driverId")
+  .get(
+    protect,
+    authorizeRoles("carrier", "admin"),
+    asyncHandler(performanceController.getDriverPerformanceById),
   );
 
 module.exports = router;

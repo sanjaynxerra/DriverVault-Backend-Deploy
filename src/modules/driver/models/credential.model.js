@@ -4,20 +4,12 @@ const credentialSchema = new mongoose.Schema(
   {
     driver: {
       type: mongoose.Schema.Types.ObjectId,
-      ref: "User",
+      ref: "Driver",
       required: true,
     },
     type: {
       type: String,
-      enum: [
-        "cdl",
-        "medical",
-        "hazmat",
-        "training",
-        "twic",
-        "safety",
-        "other",
-      ],
+      enum: ["cdl", "medical", "hazmat", "training", "twic", "safety", "other"],
       required: true,
     },
     title: {
@@ -43,9 +35,10 @@ const credentialSchema = new mongoose.Schema(
     },
     status: {
       type: String,
-      enum: ["pending", "verified", "rejected"],
+      enum: ["pending", "verified", "rejected", "disputed"],
       default: "pending",
     },
+
     verifiedBy: {
       type: mongoose.Schema.Types.ObjectId,
       ref: "User",

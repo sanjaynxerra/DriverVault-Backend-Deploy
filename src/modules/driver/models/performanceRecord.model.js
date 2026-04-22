@@ -34,11 +34,12 @@ const performanceRecordSchema = new mongoose.Schema({
     type: Date,
     default: Date.now,
   },
-
+  status: {
+    type: String,
+    enum: ["verified", "pending", "rejected", "disputed"],
+    default: "verified",
+  },
   description: String,
 });
 
-module.exports = mongoose.model(
-  "PerformanceRecord",
-  performanceRecordSchema
-);
+module.exports = mongoose.model("PerformanceRecord", performanceRecordSchema);

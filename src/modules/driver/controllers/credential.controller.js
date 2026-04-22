@@ -1,14 +1,24 @@
 const Credential = require("../models/credential.model");
+const Driver = require("../models/driver.model");
 
 // ================= CREATE CREDENTIAL =================
 exports.createCredential = async (req, res) => {
   if (!req.file) {
-    return res.status(400).json({ message: " Document File required" });
+    return res.status(400).json({ message: "Document File required" });
   }
 
   const { title, type, issuedBy, expiryDate, renewedFrom } = req.body;
 
-  // 🔥 Prevent double renewal (optional but strong)
+  // 🔥 get driver profile
+  const driverProfile = await Driver.findOne({
+    user: req.user.id,
+  });
+
+  if (!driverProfile) {
+    return res.status(404).json({ message: "Driver not found" });
+  }
+
+  // 🔥 renewal validation
   if (renewedFrom) {
     const old = await Credential.findById(renewedFrom);
 
@@ -17,39 +27,30 @@ exports.createCredential = async (req, res) => {
         message: "Invalid or already renewed credential",
       });
     }
-    if (renewedFrom) {
-      const old = await Credential.findById(renewedFrom);
 
-      if (!old || !old.isActive) {
-        return res.status(400).json({
-          message: "Invalid or already renewed credential",
-        });
-      }
-
-      // RESOURCE LEVEL AUTHORIZATION | DRIVER ONLY CAN RENEW HIS CREDENTIAL
-      if (!old.driver.equals(req.user.id)) {
-        return res.status(403).json({
-          message: "Unauthorized: You can only renew your own credential",
-        });
-      }
+    // ✅ ownership check FIXED
+    if (!old.driver.equals(driverProfile._id)) {
+      return res.status(403).json({
+        message: "Unauthorized: You can only renew your own credential",
+      });
     }
   }
 
-  // ✅ Create new credential
+  // ✅ create credential
   const newCredential = await Credential.create({
-    driver: req.user.id,
+    driver: driverProfile._id, 
     title,
     type,
     issuedBy,
     expiryDate,
     fileUrl: req.file.path,
-    status: "pending", // temporary test
+    status: "pending",
     isVerified: false,
     renewedFrom: renewedFrom || null,
     isActive: true,
   });
 
-  // 🔥 Deactivate old credential
+  // 🔥 deactivate old
   if (renewedFrom) {
     await Credential.findByIdAndUpdate(renewedFrom, {
       isActive: false,
@@ -62,17 +63,20 @@ exports.createCredential = async (req, res) => {
   });
 };
 
-// ================= GET ALL CREDENTIAL =================
+// ================= GET ALL =================
 exports.getCredentials = async (req, res) => {
+  const driverProfile = await Driver.findOne({
+    user: req.user.id,
+  });
+
   const credentials = await Credential.find({
-    driver: req.user.id,
-    isActive: true, //  important for renewal system
+    driver: driverProfile._id, 
+    isActive: true,
   }).sort({ createdAt: -1 });
 
   const updated = credentials.map((c) => {
     let status = c.status;
 
-    //  expiry logic
     if (c.status === "verified" && c.expiryDate) {
       const diffDays =
         (new Date(c.expiryDate) - new Date()) / (1000 * 60 * 60 * 24);
@@ -86,39 +90,40 @@ exports.getCredentials = async (req, res) => {
       status,
     };
   });
-  res.json({ count: credentials.length, data: updated }); //check
+
+  res.json({ count: credentials.length, data: updated });
 };
 
-// ================= GET  SINGLE CREDENTIAL =================
+// ================= GET SINGLE =================
 exports.getSingleCredential = async (req, res) => {
+  const driverProfile = await Driver.findOne({
+    user: req.user.id,
+  });
+
   const credential = await Credential.findOne({
     _id: req.params.id,
-    driver: req.user.id,
+    driver: driverProfile._id, 
     isActive: true,
   });
 
   if (!credential) {
-    return res.status(404).json({ message: " Credential not found" });
+    return res.status(404).json({ message: "Credential not found" });
   }
 
   let status = credential.status;
 
-  // 👉 Apply expiry logic ONLY if verified
   if (credential.status === "verified" && credential.expiryDate) {
     const diffDays =
       (new Date(credential.expiryDate) - new Date()) / (1000 * 60 * 60 * 24);
 
-    if (diffDays < 0) {
-      status = "expired";
-    } else if (diffDays <= 30) {
-      status = "expiringSoon";
-    }
+    if (diffDays < 0) status = "expired";
+    else if (diffDays <= 30) status = "expiringSoon";
   }
 
-  const result = {
-    ...credential.toObject(),
-    status,
-  };
-
-  res.json({ data: result });
+  res.json({
+    data: {
+      ...credential.toObject(),
+      status,
+    },
+  });
 };

@@ -1,17 +1,5 @@
 const mongoose = require("mongoose");
 
-// 🔴 Employment (Restricted)
-const employmentSchema = new mongoose.Schema(
-  {
-    company: String,
-    role: String,
-    startDate: Date,
-    endDate: Date,
-    isCurrent: Boolean,
-  },
-  { _id: false },
-);
-
 const driverSchema = new mongoose.Schema(
   {
     user: {
@@ -63,8 +51,8 @@ const driverSchema = new mongoose.Schema(
       zipCode: String,
     },
 
-    // 🔴 RESTRICTED
-    employmentHistory: [employmentSchema],
+    // // 🔴 RESTRICTED
+    // employmentHistory: [employmentSchema],
   },
   { timestamps: true },
 );
