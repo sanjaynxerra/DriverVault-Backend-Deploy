@@ -71,6 +71,11 @@ exports.createDispute = async (req, res) => {
         message: "Invalid category. Use underscore format.",
       });
     }
+    if (category !== "other" && !relatedRecord) {
+      return res.status(400).json({
+        message: "relatedRecord ID is required for this category",
+      });
+    }
 
     const driver = await Driver.findOne({ user: req.user.id });
 
