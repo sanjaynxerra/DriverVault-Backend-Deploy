@@ -13,7 +13,7 @@ const {
 
 // GET ALL REQUEST
 router.get(
-  "/access-requests",
+  "/",
   protect,
   authorizeRoles("driver"),
   asyncHandler(accessController.getDriverAccessRequests),
@@ -21,7 +21,7 @@ router.get(
 
 // GET REQUEST BY SINGLE ID
 router.get(
-  "/access-request/:id",
+  "/:id",
   protect,
   authorizeRoles("driver"),
   asyncHandler(accessController.getAccessRequestById),
@@ -29,7 +29,7 @@ router.get(
 
 // APPROVE OR REJECT REQUEST BY ID  
 router.patch(
-  "/access-request/:id",
+  "/:id",
   protect,
   authorizeRoles("driver"),
   validate(handleAccessSchema),

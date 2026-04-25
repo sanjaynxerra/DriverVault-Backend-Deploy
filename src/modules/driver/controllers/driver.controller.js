@@ -3,7 +3,8 @@ const cloudinary = require("cloudinary").v2;
 const Credential = require("../models/credential.model");
 const Employment = require("../models/employment.model");
 const PerformanceRecord = require("../models/performanceRecord.model");
-const ConsentPreferences = require("../../driver/models/consentPreferences.model");
+const Carrier = require("../../carrier/models/carrier.model");
+const AccessRequest = require("../../common/models/accessRequest.model");
 
 const {
   getDriverPerformanceData,
@@ -11,63 +12,50 @@ const {
 
 // ================= PUBLIC PROFILE =================
 exports.getPublicDriverProfile = async (req, res) => {
-  const { id } = req.params;
+  try {
+    const { id } = req.params;
 
-  const driver = await Driver.findById(id).populate("user");
+    const driver = await Driver.findById(id).populate("user");
 
-  if (!driver) {
-    res.status(404);
-    throw new Error("Driver not found");
+    if (!driver) {
+      return res.status(404).json({ message: "Driver not found" });
+    }
+
+    const performanceData = await getDriverPerformanceData(driver._id);
+
+    const publicData = {
+      id: driver._id,
+
+      profilePhoto: driver.profilePhoto || null,
+      fullName: `${driver.firstName} ${driver.lastName}`,
+
+      location: {
+        city: driver.location?.city || null,
+        state: driver.location?.state || null,
+      },
+
+      licenseType: driver.licenseType,
+      experienceYears: driver.experienceYears || 0,
+      availability: driver.availability || null,
+      bio: driver.bio || null,
+
+      performance: {
+        safetyScore: performanceData.scores.safety,
+        reliabilityScore: performanceData.scores.reliability,
+        trainingScore: performanceData.scores.training,
+        overallScore: performanceData.scores.overall,
+      },
+    };
+
+    return res.status(200).json({
+      message: "Public profile fetched",
+      data: publicData,
+    });
+  } catch (error) {
+    return res.status(500).json({
+      message: "Failed to fetch public profile",
+    });
   }
-
-  const performanceData = await getDriverPerformanceData(driver._id);
-
-  // 🔹 fetch consent
-  const prefs = await ConsentPreferences.findOne({
-    driverId: driver._id,
-  });
-
-  // 🔹 build response safely
-  let fullName = `${driver.firstName} ${driver.lastName}`;
-  let location = {
-    city: driver.location?.city || null,
-    state: driver.location?.state || null,
-  };
-
-  // 🔹 apply personal info filtering
-  if (prefs && prefs.personalInfo === false) {
-    fullName = null;
-    location = null;
-  }
-
-  const publicData = {
-    id: driver._id,
-
-    // 🔐 filtered
-    profilePhoto:
-      prefs?.personalInfo === false ? null : driver.profilePhoto || null,
-    fullName,
-
-    location,
-
-    // always allowed (professional data)
-    licenseType: driver.licenseType,
-    experienceYears: driver.experienceYears || 0,
-    availability: driver.availability || null,
-    bio: driver.bio || null,
-
-    performance: {
-      safetyScore: performanceData.scores.safety,
-      reliabilityScore: performanceData.scores.reliability,
-      trainingScore: performanceData.scores.training,
-      overallScore: performanceData.scores.overall,
-    },
-  };
-
-  res.status(200).json({
-    message: "Public profile fetched",
-    data: publicData,
-  });
 };
 
 // ================= DRIVER PRIVATE PROFILE =================
@@ -201,4 +189,55 @@ exports.updateDriverProfile = async (req, res) => {
       employmentHistory,
     },
   });
+};
+
+exports.getDriverProfileById = async (req, res) => {
+  try {
+    const { driverId } = req.params;
+
+    // 🔐 EXTRA SAFETY (defense layer)
+    if (req.user.role === "carrier") {
+      const carrier = await Carrier.findOne({ user: req.user.id });
+
+      const access = await AccessRequest.findOne({
+        driver: driverId,
+        carrierProfile: carrier?._id,
+        status: "approved",
+      });
+
+      if (!access || !access.allowedData?.personalInfo) {
+        return res.status(403).json({
+          message: "personalInfo access not allowed",
+        });
+      }
+    }
+
+    const driver = await Driver.findById(driverId).populate("user", "email");
+
+    if (!driver) {
+      return res.status(404).json({ message: "Driver not found" });
+    }
+
+    return res.status(200).json({
+      id: driver._id,
+      firstName: driver.firstName,
+      lastName: driver.lastName,
+      email: driver.user?.email || null,
+      phone: driver.phone || null,
+      location: {
+        city: driver.location?.city || null,
+        state: driver.location?.state || null,
+        zipCode: driver.location?.zipCode || null,
+      },
+      licenseType: driver.licenseType,
+      experienceYears: driver.experienceYears || 0,
+      availability: driver.availability || null,
+      bio: driver.bio || null,
+    });
+  } catch (error) {
+    console.log("PROFILE ERROR:", error); // 👈 ADD THIS
+    return res.status(500).json({
+      message: "Failed to fetch driver profile",
+    });
+  }
 };

@@ -36,39 +36,47 @@ const checkDriverAccess = (resource) => {
         });
       }
 
-      // 🔹 find approved access
+      // 🔥 IMPORTANT: get LATEST request (not just approved)
       const access = await AccessRequest.findOne({
         driver: driverId,
         carrierProfile: carrier._id,
-        status: "approved",
-      });
+      }).sort({ createdAt: -1 });
 
+      // ❌ no request
       if (!access) {
         return res.status(403).json({
           message: "Access not granted",
         });
       }
 
-      // 🔹 expiry check
+      // ❌ must be approved (handles revoked/pending)
+      if (access.status !== "approved") {
+        return res.status(403).json({
+          message: "Access not active",
+        });
+      }
+
+      // ❌ expired
       if (access.expiresAt && access.expiresAt < new Date()) {
         return res.status(403).json({
           message: "Access expired",
         });
       }
 
-      // (NO CONSENT)
+      // ❌ resource not allowed
       if (!access.allowedData || !access.allowedData[resource]) {
         return res.status(403).json({
           message: `${resource} access not allowed`,
         });
       }
 
-      // 🔹 attach for later use
+      // 🔹 attach for controllers (audit/logging use)
       req.access = access;
       req.carrier = carrier;
 
       next();
     } catch (error) {
+      console.log("ACCESS CHECK ERROR:", error);
       return res.status(500).json({
         message: "Access validation failed",
       });

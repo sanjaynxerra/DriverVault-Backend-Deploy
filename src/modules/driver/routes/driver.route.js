@@ -5,6 +5,7 @@ const { protect } = require("../../../middlewares/auth.middleware");
 const { authorizeRoles } = require("../../../middlewares/role.middleware");
 const asyncHandler = require("express-async-handler");
 const upload = require("../../../middlewares/upload.middleware");
+const checkDriverAccess = require("../../../middlewares/checkDriverAccess");
 
 const {
   createCredentialSchema,
@@ -25,12 +26,22 @@ const consentRoutes = require("./consent.routes");
 
 router.use("/performance", performanceRoutes);
 router.use("/credentials", credentialRoutes);
-router.use("/", accessRequestRoutes);
+router.use("/access-requests", accessRequestRoutes);
 router.use("/employment", employmentRoutes);
 router.use("/disputes", disputeRoutes);
 router.use("/consent", consentRoutes);
 
 // ================= PRIVATE ROUTES =================
+
+
+// FOR CARRIER AND ADMIN
+router.get(
+  "/profile/view/:driverId",
+  protect,
+  authorizeRoles("carrier", "admin"),
+  checkDriverAccess("personalInfo"),
+  asyncHandler(driverController.getDriverProfileById)
+);
 
 // 🔐 Get own profile
 router.get(
