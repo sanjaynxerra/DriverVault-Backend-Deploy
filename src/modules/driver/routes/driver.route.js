@@ -27,6 +27,7 @@ const consentRoutes = require("./consent.routes");
 router.use("/performance", performanceRoutes);
 router.use("/credentials", credentialRoutes);
 router.use("/access-requests", accessRequestRoutes);
+router.use("/access-request", accessRequestRoutes);
 router.use("/employment", employmentRoutes);
 router.use("/disputes", disputeRoutes);
 router.use("/consent", consentRoutes);

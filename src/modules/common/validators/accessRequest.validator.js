@@ -44,10 +44,10 @@ const requestAccessSchema = Joi.object({
 // ================= HANDLE REQUEST =================
 const handleAccessSchema = Joi.object({
   action: Joi.string()
-    .valid("approve", "revoke")
+    .valid("approve", "reject", "revoke")
     .required()
     .messages({
-      "any.only": "Action must be approve or revoke",
+      "any.only": "Action must be approve, reject or revoke",
       "any.required": "Action is required",
     }),
 

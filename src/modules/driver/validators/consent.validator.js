@@ -9,7 +9,8 @@ exports.updateConsentSchema = Joi.object({
   medical: Joi.boolean().optional(),
   financial: Joi.boolean().optional(),
 })
-  .min(1) // 🔥 at least one field required
+  .unknown(true)
+  .min(1)
   .messages({
     "object.min": "At least one preference must be provided",
   });

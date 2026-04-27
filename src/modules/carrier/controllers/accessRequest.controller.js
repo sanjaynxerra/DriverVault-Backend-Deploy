@@ -1,6 +1,41 @@
 const AccessRequest = require("../../common/models/accessRequest.model");
 const Carrier = require("../models/carrier.model");
 const Driver = require("../../driver/models/driver.model");
+const Credential = require("../../driver/models/credential.model");
+const {
+  getDriverPerformanceData,
+} = require("../../../services/performance.service");
+
+const toDriverCard = async (driver, request = null) => {
+  const performanceData = await getDriverPerformanceData(driver._id);
+  const scores = performanceData?.scores || {};
+
+  return {
+    _id: driver._id,
+    name: `${driver.firstName} ${driver.lastName}`,
+    type: driver.licenseType,
+    location: {
+      city: driver.location?.city || null,
+      state: driver.location?.state || null,
+    },
+    available: driver.availability === "available",
+    experienceYears: driver.experienceYears || 0,
+    bio: driver.bio || null,
+    safetyScore: scores.safety || 0,
+    reliabilityScore: scores.reliability || 0,
+    trainingScore: scores.training || 0,
+    overallScore: scores.overall || 0,
+    requestStatus: request?.status || null,
+    accessType: request?.accessType || null,
+    requestedData: request?.requestedData || null,
+    allowedData: request?.allowedData || null,
+    expiresAt: request?.expiresAt || null,
+  };
+};
+
+const isActiveApproved = (request) =>
+  request?.status === "approved" &&
+  (!request.expiresAt || request.expiresAt > new Date());
 
 exports.requestAccess = async (req, res) => {
   const { driverId, requestedData, accessType, reason } = req.body;
@@ -29,12 +64,27 @@ exports.requestAccess = async (req, res) => {
     });
   }
 
+  const activeApproved = await AccessRequest.findOne({
+    driver: driverId,
+    carrierProfile: carrierProfile._id,
+    status: "approved",
+    $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
+  }).sort({ createdAt: -1 });
+
+  if (activeApproved) {
+    return res.status(200).json({
+      message: "Access already approved",
+      data: activeApproved,
+    });
+  }
+
   const existing = await AccessRequest.findOne({
     driver: driverId,
     carrierProfile: carrierProfile._id,
-  });
+    status: "pending",
+  }).sort({ createdAt: -1 });
 
-  if (existing && existing.status === "pending") {
+  if (existing) {
     return res.status(400).json({
       message: "Request already pending",
     });
@@ -51,5 +101,114 @@ exports.requestAccess = async (req, res) => {
   res.status(201).json({
     message: "Access request sent",
     data: request,
+  });
+};
+
+exports.getVerifiedDrivers = async (req, res) => {
+  const carrierProfile = await Carrier.findOne({
+    user: req.user.id,
+  });
+
+  if (!carrierProfile) {
+    return res.status(404).json({
+      message: "Carrier profile not found",
+    });
+  }
+
+  const verifiedDriverIds = await Credential.distinct("driver", {
+    status: "verified",
+    isActive: true,
+  });
+
+  const drivers = await Driver.find({
+    _id: { $in: verifiedDriverIds },
+  }).sort({ createdAt: -1 });
+
+  const requests = await AccessRequest.find({
+    carrierProfile: carrierProfile._id,
+    driver: { $in: drivers.map((driver) => driver._id) },
+  }).sort({ createdAt: -1 });
+
+  const latestRequestByDriver = new Map();
+  requests.forEach((request) => {
+    const key = request.driver.toString();
+    const current = latestRequestByDriver.get(key);
+
+    if (!current || (!isActiveApproved(current) && isActiveApproved(request))) {
+      latestRequestByDriver.set(key, request);
+    }
+  });
+
+  const data = await Promise.all(
+    drivers.map((driver) =>
+      toDriverCard(driver, latestRequestByDriver.get(driver._id.toString())),
+    ),
+  );
+
+  return res.json({
+    count: data.length,
+    data,
+  });
+};
+
+exports.getCarrierAccessRequests = async (req, res) => {
+  const carrierProfile = await Carrier.findOne({
+    user: req.user.id,
+  });
+
+  if (!carrierProfile) {
+    return res.status(404).json({
+      message: "Carrier profile not found",
+    });
+  }
+
+  const requests = await AccessRequest.find({
+    carrierProfile: carrierProfile._id,
+  })
+    .populate("driver")
+    .sort({ createdAt: -1 });
+
+  const now = new Date();
+
+  const data = await Promise.all(
+    requests.map(async (request) => {
+      const driver = request.driver;
+      let status = request.status;
+
+      if (request.status === "approved" && request.expiresAt && request.expiresAt < now) {
+        status = "expired";
+      }
+
+      const driverData = driver ? await toDriverCard(driver, request) : null;
+
+      return {
+        id: request._id,
+        driverId: driver?._id || null,
+        driverName: driver ? `${driver.firstName} ${driver.lastName}` : "Driver",
+        driver: driverData,
+        status,
+        accessType: request.accessType,
+        requestedData: request.requestedData,
+        allowedData: request.allowedData,
+        reason: request.reason || null,
+        notes: request.notes || null,
+        createdAt: request.createdAt,
+        expiresAt: request.expiresAt || null,
+      };
+    }),
+  );
+
+  const stats = {
+    total: data.length,
+    pending: data.filter((request) => request.status === "pending").length,
+    approved: data.filter((request) => request.status === "approved").length,
+    rejected: data.filter((request) => request.status === "rejected").length,
+    revoked: data.filter((request) => request.status === "revoked").length,
+    expired: data.filter((request) => request.status === "expired").length,
+  };
+
+  return res.json({
+    stats,
+    requests: data,
   });
 };

@@ -20,12 +20,35 @@ const getAccessType = (allowedData) => {
   return "Partial Access";
 };
 
+const DEFAULT_CONSENT = {
+  personalInfo: true,
+  cdl: true,
+  safety: true,
+  employment: true,
+  performance: true,
+  medical: false,
+  financial: false,
+};
+
+const EMPTY_ALLOWED_DATA = {
+  personalInfo: false,
+  cdl: false,
+  safety: false,
+  employment: false,
+  performance: false,
+  medical: false,
+  financial: false,
+};
+
+const canShare = (requestedData, preferences, field) =>
+  Boolean(requestedData?.[field]) && Boolean(preferences?.[field]);
+
 // ================= HANDLE ACCESS REQUEST =================
 exports.handleAccessRequest = async (req, res) => {
   try {
     const { action, notes } = req.body;
 
-    if (!["approve", "revoke"].includes(action)) {
+    if (!["approve", "reject", "revoke"].includes(action)) {
       return res.status(400).json({ message: "Invalid action" });
     }
 
@@ -55,28 +78,20 @@ exports.handleAccessRequest = async (req, res) => {
         driverId: driver._id,
       });
 
-      const preferences = prefs || {
-        personalInfo: true,
-        cdl: true,
-        safety: true,
-        employment: true,
-        performance: true,
-        medical: false,
-        financial: false,
+      const preferences = {
+        ...DEFAULT_CONSENT,
+        ...(prefs ? prefs.toObject() : {}),
       };
 
       // 🔥 FINAL INTERSECTION LOGIC
       request.allowedData = {
-        personalInfo:
-          request.requestedData.personalInfo && preferences.personalInfo,
-        cdl: request.requestedData.cdl && preferences.cdl,
-        safety: request.requestedData.safety && preferences.safety,
-        employment:
-          request.requestedData.employment && preferences.employment,
-        performance:
-          request.requestedData.performance && preferences.performance,
-        medical: request.requestedData.medical && preferences.medical,
-        financial: request.requestedData.financial && preferences.financial,
+        personalInfo: canShare(request.requestedData, preferences, "personalInfo"),
+        cdl: canShare(request.requestedData, preferences, "cdl"),
+        safety: canShare(request.requestedData, preferences, "safety"),
+        employment: canShare(request.requestedData, preferences, "employment"),
+        performance: canShare(request.requestedData, preferences, "performance"),
+        medical: canShare(request.requestedData, preferences, "medical"),
+        financial: canShare(request.requestedData, preferences, "financial"),
       };
 
       await logAudit({
@@ -90,10 +105,28 @@ exports.handleAccessRequest = async (req, res) => {
       });
     }
 
+    // ================= REJECT =================
+    if (action === "reject") {
+      request.status = "rejected";
+      request.allowedData = { ...EMPTY_ALLOWED_DATA };
+      request.expiresAt = null;
+      request.notes = notes;
+
+      await logAudit({
+        actorId: driver._id,
+        actorType: "driver",
+        action: "REJECT_ACCESS",
+        resource: "access",
+        resourceId: request._id,
+        targetDriverId: driver._id,
+        req,
+      });
+    }
+
     // ================= REVOKE =================
     if (action === "revoke") {
       request.status = "revoked";
-      request.allowedData = {}; // 🔥 IMPORTANT FIX
+      request.allowedData = { ...EMPTY_ALLOWED_DATA };
       request.expiresAt = null;
       request.notes = notes;
 
@@ -111,12 +144,13 @@ exports.handleAccessRequest = async (req, res) => {
     await request.save();
 
     return res.json({
-      message: `Request ${action}ed`,
+      message: `Request ${action === "reject" ? "rejected" : `${action}ed`}`,
       data: request,
     });
   } catch (error) {
+    console.error("Access request update error:", error);
     return res.status(500).json({
-      message: "Failed to process access request",
+      message: error.message || "Failed to process access request",
     });
   }
 };

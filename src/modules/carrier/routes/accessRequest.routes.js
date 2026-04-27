@@ -10,9 +10,20 @@ const asyncHandler = require("express-async-handler");
 const { protect } = require("../../../middlewares/auth.middleware");
 const { authorizeRoles } = require("../../../middlewares/role.middleware");
 
-const { requestAccess } = require("../controllers/accessRequest.controller");
+const {
+  requestAccess,
+  getCarrierAccessRequests,
+} = require("../controllers/accessRequest.controller");
 
 // ================= CARRIER =================
+
+// Track requests sent by this carrier
+router.get(
+  "/",
+  protect,
+  authorizeRoles("carrier"),
+  asyncHandler(getCarrierAccessRequests)
+);
 
 // Request access to driver data
 router.post(

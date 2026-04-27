@@ -13,6 +13,30 @@ const allowedFields = [
   "financial",
 ];
 
+const DEFAULT_PREFERENCES = {
+  personalInfo: true,
+  cdl: true,
+  safety: true,
+  employment: true,
+  performance: true,
+  medical: false,
+  financial: false,
+};
+
+const formatPreferences = (prefs) => {
+  const source = prefs?.toObject ? prefs.toObject() : prefs || {};
+
+  return allowedFields.reduce(
+    (formatted, field) => ({
+      ...formatted,
+      [field]:
+        source[field] === undefined
+          ? DEFAULT_PREFERENCES[field]
+          : Boolean(source[field]),
+    }),
+    {},
+  );
+};
 
 // ================= GET PREFERENCES =================
 exports.getPreferences = async (req, res) => {
@@ -39,7 +63,7 @@ exports.getPreferences = async (req, res) => {
     }
 
     return res.json({
-      data: prefs,
+      data: formatPreferences(prefs),
     });
   } catch (error) {
     return res.status(500).json({
@@ -89,7 +113,7 @@ exports.updatePreferences = async (req, res) => {
 
     return res.json({
       message: "Preferences updated successfully",
-      data: updated,
+      data: formatPreferences(updated),
     });
   } catch (error) {
     return res.status(500).json({
