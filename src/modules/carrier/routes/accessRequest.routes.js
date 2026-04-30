@@ -32,6 +32,7 @@ router.post(
   authorizeRoles("carrier"),
   validate(requestAccessSchema),
   asyncHandler(requestAccess)
+  
 );
 
 module.exports = router;

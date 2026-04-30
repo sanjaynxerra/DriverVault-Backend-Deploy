@@ -37,6 +37,8 @@ const isActiveApproved = (request) =>
   request?.status === "approved" &&
   (!request.expiresAt || request.expiresAt > new Date());
 
+const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+
 exports.requestAccess = async (req, res) => {
   const { driverId, requestedData, accessType, reason } = req.body;
 
@@ -115,18 +117,61 @@ exports.getVerifiedDrivers = async (req, res) => {
     });
   }
 
+  // ================= QUERY PARAMS =================
+  const {
+    search = "",
+    licenseType = "all",
+    availability = "all",
+    minExperience = "0",
+    minSafety = "0",
+  } = req.query;
+
+  const page = Math.max(parseInt(req.query.page, 10) || 1, 1);
+  const limit = Math.min(Math.max(parseInt(req.query.limit, 10) || 10, 1), 50);
+  const skip = (page - 1) * limit;
+
+  // ================= VERIFIED DRIVERS =================
   const verifiedDriverIds = await Credential.distinct("driver", {
     status: "verified",
     isActive: true,
   });
 
-  const drivers = await Driver.find({
+  // ================= BUILD QUERY =================
+  const query = {
     _id: { $in: verifiedDriverIds },
-  }).sort({ createdAt: -1 });
+  };
 
+  const trimmedSearch = String(search).trim();
+  if (trimmedSearch) {
+    const regex = new RegExp(escapeRegex(trimmedSearch), "i");
+    query.$or = [
+      { firstName: regex },
+      { lastName: regex },
+      { "location.city": regex },
+      { "location.state": regex },
+    ];
+  }
+
+  if (licenseType && licenseType !== "all") {
+    query.licenseType = licenseType;
+  }
+
+  if (availability && availability !== "all") {
+    query.availability = availability;
+  }
+
+  const minExperienceNumber = Number(minExperience);
+  if (!Number.isNaN(minExperienceNumber) && minExperienceNumber > 0) {
+    query.experienceYears = { $gte: minExperienceNumber };
+  }
+
+  // ================= FETCH DATA =================
+  const drivers = await Driver.find(query).sort({ createdAt: -1 });
+
+  // ================= ACCESS REQUEST STATUS =================
   const requests = await AccessRequest.find({
     carrierProfile: carrierProfile._id,
-    driver: { $in: drivers.map((driver) => driver._id) },
+    driver: { $in: drivers.map((d) => d._id) },
   }).sort({ createdAt: -1 });
 
   const latestRequestByDriver = new Map();
@@ -139,15 +184,30 @@ exports.getVerifiedDrivers = async (req, res) => {
     }
   });
 
+  // ================= RESPONSE =================
   const data = await Promise.all(
     drivers.map((driver) =>
       toDriverCard(driver, latestRequestByDriver.get(driver._id.toString())),
     ),
   );
 
+  const minSafetyNumber = Number(minSafety);
+  const filteredData =
+    !Number.isNaN(minSafetyNumber) && minSafetyNumber > 0
+      ? data.filter((driver) => (driver.safetyScore || 0) >= minSafetyNumber)
+      : data;
+  const total = filteredData.length;
+  const paginatedData = filteredData.slice(skip, skip + limit);
+
   return res.json({
-    count: data.length,
-    data,
+    count: paginatedData.length,
+    data: paginatedData,
+    pagination: {
+      page,
+      limit,
+      total,
+      totalPages: Math.ceil(total / limit) || 1,
+    },
   });
 };
 
@@ -175,7 +235,11 @@ exports.getCarrierAccessRequests = async (req, res) => {
       const driver = request.driver;
       let status = request.status;
 
-      if (request.status === "approved" && request.expiresAt && request.expiresAt < now) {
+      if (
+        request.status === "approved" &&
+        request.expiresAt &&
+        request.expiresAt < now
+      ) {
         status = "expired";
       }
 
@@ -184,7 +248,9 @@ exports.getCarrierAccessRequests = async (req, res) => {
       return {
         id: request._id,
         driverId: driver?._id || null,
-        driverName: driver ? `${driver.firstName} ${driver.lastName}` : "Driver",
+        driverName: driver
+          ? `${driver.firstName} ${driver.lastName}`
+          : "Driver",
         driver: driverData,
         status,
         accessType: request.accessType,

@@ -14,14 +14,14 @@ const accessRequestSchema = new mongoose.Schema(
       required: true,
     },
 
-    // 🔹 REQUEST STATUS
+    //  REQUEST STATUS
     status: {
       type: String,
       enum: ["pending", "approved", "rejected", "revoked"],
       default: "pending",
     },
 
-    // 🔹 WHAT CARRIER REQUESTED (NEW)
+    //  WHAT CARRIER REQUESTED 
     requestedData: {
       personalInfo: { type: Boolean, default: false },
       cdl: { type: Boolean, default: false },
@@ -32,7 +32,7 @@ const accessRequestSchema = new mongoose.Schema(
       financial: { type: Boolean, default: false },
     },
 
-    // 🔹 WHAT DRIVER APPROVED
+    //  WHAT DRIVER APPROVED
     allowedData: {
       personalInfo: { type: Boolean, default: false },
       cdl: { type: Boolean, default: false },
@@ -43,7 +43,7 @@ const accessRequestSchema = new mongoose.Schema(
       financial: { type: Boolean, default: false },
     },
 
-    // 🔹 TYPE OF ACCESS
+    //  TYPE OF ACCESS
     accessType: {
       type: String,
       enum: ["view", "download"],
@@ -85,7 +85,7 @@ const accessRequestSchema = new mongoose.Schema(
   { timestamps: true },
 );
 
-// ✅ INDEX (keep as is)
+// ✅ INDEX 
 accessRequestSchema.index(
   { driver: 1, carrierProfile: 1 },
   { unique: true, partialFilterExpression: { status: "pending" } },

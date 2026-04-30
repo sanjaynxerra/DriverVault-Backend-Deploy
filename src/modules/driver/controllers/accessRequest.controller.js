@@ -73,7 +73,7 @@ exports.handleAccessRequest = async (req, res) => {
 
       request.expiresAt = new Date(Date.now() + 72 * 60 * 60 * 1000);
 
-      // 🔥 GET DRIVER PREFERENCES
+      //  GET DRIVER PREFERENCES
       const prefs = await ConsentPreferences.findOne({
         driverId: driver._id,
       });
@@ -83,7 +83,7 @@ exports.handleAccessRequest = async (req, res) => {
         ...(prefs ? prefs.toObject() : {}),
       };
 
-      // 🔥 FINAL INTERSECTION LOGIC
+      //  INTERSECTION LOGIC
       request.allowedData = {
         personalInfo: canShare(request.requestedData, preferences, "personalInfo"),
         cdl: canShare(request.requestedData, preferences, "cdl"),

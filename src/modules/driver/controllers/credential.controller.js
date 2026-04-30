@@ -191,10 +191,18 @@ exports.getDriverCredentialsById = async (req, res) => {
       });
     }
 
-    const credentials = await Credential.find({
+    const credentialQuery = {
       driver: driver._id,
       isActive: true,
-    }).sort({ createdAt: -1 });
+    };
+
+    if (req.user.role === "carrier") {
+      credentialQuery.status = "verified";
+    }
+
+    const credentials = await Credential.find(credentialQuery).sort({
+      createdAt: -1,
+    });
 
     await logAudit({
       actorId: req.carrier?._id || req.user.id,
