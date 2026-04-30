@@ -27,13 +27,11 @@ const consentRoutes = require("./consent.routes");
 router.use("/performance", performanceRoutes);
 router.use("/credentials", credentialRoutes);
 router.use("/access-requests", accessRequestRoutes);
-router.use("/access-request", accessRequestRoutes);
 router.use("/employment", employmentRoutes);
 router.use("/disputes", disputeRoutes);
 router.use("/consent", consentRoutes);
 
 // ================= PRIVATE ROUTES =================
-
 
 // FOR CARRIER AND ADMIN
 router.get(
@@ -41,7 +39,7 @@ router.get(
   protect,
   authorizeRoles("carrier", "admin"),
   checkDriverAccess("personalInfo"),
-  asyncHandler(driverController.getDriverProfileById)
+  asyncHandler(driverController.getDriverProfileById),
 );
 
 // 🔐 Get own profile
@@ -67,7 +65,7 @@ router.put(
   "/change-password",
   protect,
   authorizeRoles("driver"),
-  asyncHandler(driverController.changePassword)
+  asyncHandler(driverController.changePassword),
 );
 
 // ================= PUBLIC ROUTE =================
