@@ -4,6 +4,7 @@ exports.protect = (req, res, next) => {
   let token;
 
   // Check Authorization header
+  //test
   if (
     req.headers.authorization &&
     req.headers.authorization.startsWith("Bearer")
