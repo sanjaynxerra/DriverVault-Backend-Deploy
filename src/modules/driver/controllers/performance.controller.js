@@ -1,9 +1,7 @@
 const PerformanceRecord = require("../models/performanceRecord.model");
 const mongoose = require("mongoose");
 const { logAudit } = require("../../../utils/auditLogger");
-const {
-  getDriverPerformanceData,
-} = require("../../../services/performance.service");
+const { getDriverPerformanceData } = require("../services/performance.service");
 const Driver = require("../models/driver.model");
 
 // ================= HELPER =================
@@ -26,8 +24,9 @@ exports.getPerformance = async (req, res) => {
       });
     }
 
-    const { records, scores, history } =
-      await getDriverPerformanceData(driver._id);
+    const { records, scores, history } = await getDriverPerformanceData(
+      driver._id,
+    );
 
     return res.json({
       scores,
@@ -95,8 +94,9 @@ exports.getDriverPerformanceById = async (req, res) => {
       });
     }
 
-    const { records, scores, history } =
-      await getDriverPerformanceData(driver._id);
+    const { records, scores, history } = await getDriverPerformanceData(
+      driver._id,
+    );
 
     // audit log
     await logAudit({

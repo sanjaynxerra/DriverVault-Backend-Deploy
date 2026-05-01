@@ -1,4 +1,4 @@
-const PerformanceRecord = require("../modules/driver/models/performanceRecord.model");
+const PerformanceRecord = require("../models/performanceRecord.model");
 
 // ================= TIME DECAY =================
 const getDecayWeight = (date) => {

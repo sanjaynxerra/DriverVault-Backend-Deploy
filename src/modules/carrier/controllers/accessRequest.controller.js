@@ -4,7 +4,7 @@ const Driver = require("../../driver/models/driver.model");
 const Credential = require("../../driver/models/credential.model");
 const {
   getDriverPerformanceData,
-} = require("../../../services/performance.service");
+} = require("../../driver/services/performance.service");
 
 const toDriverCard = async (driver, request = null) => {
   const performanceData = await getDriverPerformanceData(driver._id);
@@ -37,7 +37,8 @@ const isActiveApproved = (request) =>
   request?.status === "approved" &&
   (!request.expiresAt || request.expiresAt > new Date());
 
-const escapeRegex = (value = "") => value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
+const escapeRegex = (value = "") =>
+  value.replace(/[.*+?^${}()|[\]\\]/g, "\\$&");
 
 exports.requestAccess = async (req, res) => {
   const { driverId, requestedData, accessType, reason } = req.body;
@@ -285,5 +286,51 @@ exports.getCarrierAccessRequests = async (req, res) => {
   return res.json({
     stats,
     requests: data,
+  });
+};
+
+exports.getMyDrivers = async (req, res) => {
+  const carrierProfile = await Carrier.findOne({
+    user: req.user.id,
+  });
+
+  if (!carrierProfile) {
+    return res.status(404).json({
+      message: "Carrier profile not found",
+    });
+  }
+
+  const requests = await AccessRequest.find({
+    carrierProfile: carrierProfile._id,
+    status: "approved",
+    $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
+  })
+    .populate("driver")
+    .sort({ createdAt: -1 });
+
+  const seenDrivers = new Set();
+  const data = [];
+
+  for (const request of requests) {
+    if (!request.driver) continue;
+
+    const driverId = request.driver._id.toString();
+    if (seenDrivers.has(driverId)) continue;
+
+    seenDrivers.add(driverId);
+    data.push({
+      requestId: request._id,
+      driverId: request.driver._id,
+      approvedAt: request.updatedAt || request.createdAt,
+      expiresAt: request.expiresAt || null,
+      requestedData: request.requestedData,
+      allowedData: request.allowedData,
+      driver: await toDriverCard(request.driver, request),
+    });
+  }
+
+  return res.json({
+    count: data.length,
+    data,
   });
 };

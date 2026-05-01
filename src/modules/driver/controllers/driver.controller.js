@@ -10,7 +10,7 @@ const User = require("../../user/user.model");
 
 const {
   getDriverPerformanceData,
-} = require("../../../services/performance.service");
+} = require("../services/performance.service");
 
 // ================= PUBLIC PROFILE =================
 exports.getPublicDriverProfile = async (req, res) => {
