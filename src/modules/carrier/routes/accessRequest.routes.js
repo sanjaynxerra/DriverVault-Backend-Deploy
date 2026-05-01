@@ -13,9 +13,18 @@ const { authorizeRoles } = require("../../../middlewares/role.middleware");
 const {
   requestAccess,
   getCarrierAccessRequests,
+  searchDriversForAccessRequest,
 } = require("../controllers/accessRequest.controller");
 
 // ================= CARRIER =================
+
+// Search verified drivers while creating a new access request
+router.get(
+  "/drivers/search",
+  protect,
+  authorizeRoles("carrier"),
+  asyncHandler(searchDriversForAccessRequest)
+);
 
 // Track requests sent by this carrier
 router.get(

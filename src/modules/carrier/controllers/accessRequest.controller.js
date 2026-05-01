@@ -211,6 +211,15 @@ exports.getVerifiedDrivers = async (req, res) => {
   });
 };
 
+exports.searchDriversForAccessRequest = async (req, res) => {
+  req.query = {
+    ...req.query,
+    limit: req.query.limit || "8",
+  };
+
+  return exports.getVerifiedDrivers(req, res);
+};
+
 exports.getCarrierAccessRequests = async (req, res) => {
   const carrierProfile = await Carrier.findOne({
     user: req.user.id,

@@ -17,7 +17,7 @@ const validate = require("../../../middlewares/validate.middleware");
 const performanceRoutes = require("./performance.routes");
 const credentialRoutes = require("./credential.routes");
 const accessRequestRoutes = require("./accessRequest.routes");
-const driverPublicRoutes = require("./driverPublic.route");
+
 const employmentRoutes = require("./employment.routes");
 const disputeRoutes = require("./dispute.routes");
 const consentRoutes = require("./consent.routes");
