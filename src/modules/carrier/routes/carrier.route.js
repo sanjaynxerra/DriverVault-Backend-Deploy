@@ -10,6 +10,7 @@ const {
 } = require("../controllers/accessRequest.controller");
 
 const analyticsRoutes = require("./analytics.routes");
+const { getDashboard } = require("../controllers/carrier.controller");
 // ================= SUB ROUTES =================
 
 // Access request system
@@ -24,6 +25,13 @@ router.get(
   asyncHandler(getVerifiedDrivers),
 );
 
+// Drivers dashboard with active approved access 
+router.get(
+  "/dashboard",
+  protect,
+  authorizeRoles("carrier"),
+  asyncHandler(getDashboard)
+);
 // Drivers with active approved access for this carrier
 router.get(
   "/my-drivers",

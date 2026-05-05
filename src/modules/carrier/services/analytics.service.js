@@ -9,13 +9,16 @@ const {
 // ================= MAIN SERVICE =================
 
 exports.getCarrierAnalyticsData = async (carrierProfileId) => {
+  const now = new Date();
+
   // ================= GET APPROVED DRIVERS =================
   const approvedRequests = await AccessRequest.find({
     carrierProfile: carrierProfileId,
     status: "approved",
-    expiresAt: { $gt: new Date() },
+    expiresAt: { $gt: now },
   });
 
+  // Separate drivers based on access permissions
   const performanceDriverIds = [];
   const credentialDriverIds = [];
 
@@ -52,10 +55,11 @@ exports.getCarrierAnalyticsData = async (carrierProfileId) => {
       },
       driverTurnover: [],
       complianceTrend: [],
+      scoreTrend: [],
     };
   }
 
-  // =================  SINGLE DB CALL  =================
+  // ================= FETCH PERFORMANCE DATA =================
   const performanceAgg = await PerformanceRecord.aggregate([
     {
       $match: {
@@ -79,15 +83,11 @@ exports.getCarrierAnalyticsData = async (carrierProfileId) => {
 
   performanceAgg.forEach((r) => {
     const id = r.driver.toString();
-
-    if (!driverMap[id]) {
-      driverMap[id] = [];
-    }
-
+    if (!driverMap[id]) driverMap[id] = [];
     driverMap[id].push(r);
   });
 
-  // ================= CALCULATE SCORES =================
+  // ================= CALCULATE DRIVER SCORES =================
   const driverScores = performanceDriverIds.map((id) => {
     const records = driverMap[id.toString()] || [];
     return calculateScores(records);
@@ -131,8 +131,6 @@ exports.getCarrierAnalyticsData = async (carrierProfileId) => {
     driver: { $in: credentialDriverIds },
   });
 
-  const now = new Date();
-
   const credentialStatus = {
     verified: 0,
     expiring: 0,
@@ -157,14 +155,12 @@ exports.getCarrierAnalyticsData = async (carrierProfileId) => {
     }
   });
 
-  // ================= COMPLIANCE =================
+  // ================= COMPLIANCE RATE =================
   const totalCredentials = credentials.length;
 
   const validCredentials = credentials.filter((c) => {
     if (!(c.status === "verified" && c.isActive)) return false;
-
-    if (c.expiryDate && c.expiryDate < now) return false; // ❌ exclude expired
-
+    if (c.expiryDate && c.expiryDate < now) return false;
     return true;
   }).length;
 
@@ -172,21 +168,52 @@ exports.getCarrierAnalyticsData = async (carrierProfileId) => {
     ? Math.round((validCredentials / totalCredentials) * 100)
     : 0;
 
-  // ================= TEMP DATA =================
-  const driverTurnover = [
-    { month: "Oct", hired: 2, left: 1 },
-    { month: "Nov", hired: 3, left: 0 },
-    { month: "Dec", hired: 1, left: 2 },
-    { month: "Jan", hired: 4, left: 1 },
-  ];
+  // ================= GENERATE LAST 6 MONTHS =================
+  const months = [];
 
-  // ================= REAL COMPLIANCE TREND (CREDENTIAL BASED) =================
+  for (let i = 5; i >= 0; i--) {
+    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
+    months.push(d.toLocaleString("default", { month: "short" }));
+  }
+
+  // ================= PERFORMANCE TREND (USING SCORING ENGINE) =================
+  const monthlyMap = {};
+
+  performanceAgg.forEach((r) => {
+    const month = new Date(r.date).toLocaleString("default", {
+      month: "short",
+    });
+
+    if (!monthlyMap[month]) {
+      monthlyMap[month] = [];
+    }
+
+    monthlyMap[month].push(r);
+  });
+
+  let lastSafety = 80;
+  let lastReliability = 80;
+
+  const scoreTrend = months.map((month) => {
+    const records = monthlyMap[month] || [];
+
+    if (records.length > 0) {
+      const scores = calculateScores(records);
+
+      lastSafety = scores.safety;
+      lastReliability = scores.reliability;
+    }
+
+    return {
+      month,
+      safety: lastSafety,
+      reliability: lastReliability,
+    };
+  });
+
+  // ================= COMPLIANCE TREND =================
   const credentialTrendAgg = await Credential.aggregate([
-    {
-      $match: {
-        driver: { $in: credentialDriverIds },
-      },
-    },
+    { $match: { driver: { $in: credentialDriverIds } } },
     {
       $addFields: {
         month: {
@@ -225,9 +252,7 @@ exports.getCarrierAnalyticsData = async (carrierProfileId) => {
         month: "$_id",
         rate: {
           $round: [
-            {
-              $multiply: [{ $divide: ["$valid", "$total"] }, 100],
-            },
+            { $multiply: [{ $divide: ["$valid", "$total"] }, 100] },
             0,
           ],
         },
@@ -235,25 +260,12 @@ exports.getCarrierAnalyticsData = async (carrierProfileId) => {
     },
   ]);
 
-  // ================= FIXED 6 MONTH TIMELINE =================
-  const months = [];
-
-  for (let i = 5; i >= 0; i--) {
-    const d = new Date(now.getFullYear(), now.getMonth() - i, 1);
-
-    const label = d.toLocaleString("default", { month: "short" });
-
-    months.push(label);
-  }
-
-  // Convert aggregation to map
   const trendMap = {};
   credentialTrendAgg.forEach((t) => {
     trendMap[t.month] = t.rate;
   });
 
-  // Fill missing months
-  let lastValue = 80; // base fallback
+  let lastValue = 80;
 
   const complianceTrend = months.map((month) => {
     if (trendMap[month] !== undefined) {
@@ -265,6 +277,14 @@ exports.getCarrierAnalyticsData = async (carrierProfileId) => {
       rate: lastValue,
     };
   });
+
+  // ================= DRIVER TURNOVER (TEMP) =================
+  const driverTurnover = [
+    { month: "Oct", hired: 2, left: 1 },
+    { month: "Nov", hired: 3, left: 0 },
+    { month: "Dec", hired: 1, left: 2 },
+    { month: "Jan", hired: 4, left: 1 },
+  ];
 
   // ================= FINAL RESPONSE =================
   return {
@@ -278,5 +298,6 @@ exports.getCarrierAnalyticsData = async (carrierProfileId) => {
     credentialStatus,
     driverTurnover,
     complianceTrend,
+    scoreTrend,
   };
 };
