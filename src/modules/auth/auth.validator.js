@@ -7,7 +7,7 @@ const registerSchema = Joi.object({
   password: Joi.string().min(6).required(),
 
   role: Joi.string()
-    .valid("driver", "carrier")
+    .valid("driver", "carrier", "admin")
     .required(),
 
   // ================= DRIVER =================
