@@ -190,3 +190,94 @@ exports.updateUserByAdmin = async (user, id, status) => {
   // Delete user
   await User.findOneAndUpdate({ _id: id }, { status }, { returnDocument: "after" });
 };
+
+exports.getUserCount = async () =>{
+  return User.find({ status: 'active' });
+}
+
+exports.getUserGrowth = async () => {
+  const currentYear = new Date().getFullYear();
+
+  const users = await User.aggregate([
+    {
+      $match: {
+        createdAt: {
+          $gte: new Date(currentYear, 0, 1),
+          $lt: new Date(currentYear + 1, 0, 1),
+        },
+      },
+    },
+    {
+      $group: {
+        _id: {
+          month: { $month: "$createdAt" },
+        },
+        count: {
+          $sum: 1,
+        },
+      },
+    },
+    {
+      $sort: {
+        "_id.month": 1,
+      },
+    },
+  ]);
+
+  const months = [
+    "Jan",
+    "Feb",
+    "Mar",
+    "Apr",
+    "May",
+    "Jun",
+    "Jul",
+    "Aug",
+    "Sep",
+    "Oct",
+    "Nov",
+    "Dec",
+  ];
+
+  let runningTotal = 0;
+
+  return months.map((month, index) => {
+    const monthData = users.find(
+      (item) => item._id.month === index + 1
+    );
+
+    runningTotal += monthData?.count || 0;
+
+    return {
+      month,
+      users: runningTotal,
+    };
+  });
+};
+
+exports.getRoleBreakdown = async () =>{
+  const data = await User.aggregate([
+    {
+      $match: {
+        status: "active",
+      },
+    },
+    {
+      $group: {
+        _id: "$role",
+        count: {
+          $sum: 1,
+        },
+      },
+    },
+     {
+      $project: {
+        _id: 0,
+        role: "$_id",
+        count: 1,
+      },
+    },
+  ]);
+
+  return data;
+}

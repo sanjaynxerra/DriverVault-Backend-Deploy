@@ -16,3 +16,12 @@ exports.updateCredentialStatus = async (id, status) => {
     { returnDocument: "after" },
   );
 };
+
+exports.getActiveCredentialCount = async () =>{
+  const today = new Date();
+
+  return Credential.find({
+    status: "verified",
+    expiryDate: { $gte: today }
+  });
+}
