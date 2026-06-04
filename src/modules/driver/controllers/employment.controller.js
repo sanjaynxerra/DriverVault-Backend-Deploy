@@ -244,7 +244,7 @@ exports.getDriverEmploymentById = async (req, res) => {
     }).sort({ startDate: -1 });
 
     await logAudit({
-      performedBy: req.user._id,
+      performedBy: req.user.id,
 
       role: req.user.role,
 

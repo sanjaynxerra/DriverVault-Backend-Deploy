@@ -195,23 +195,25 @@ exports.updateDriverProfile = async (req, res) => {
 exports.getDriverProfileById = async (req, res) => {
   try {
     const { driverId } = req.params;
-
+    //  console.log("driverId", driverId);
+  
     // 🔐 EXTRA SAFETY (defense layer)
-    if (req.user.role === "carrier") {
-      const carrier = await Carrier.findOne({ user: req.user.id });
+    // if (req.user.role === "carrier") {
+    //   const carrier = await Carrier.findOne({ user: req.user.id });
 
-      const access = await AccessRequest.findOne({
-        driver: driverId,
-        carrierProfile: carrier?._id,
-        status: "approved",
-      });
-
-      if (!access || !access.allowedData?.personalInfo) {
-        return res.status(403).json({
-          message: "personalInfo access not allowed",
-        });
-      }
-    }
+    //   const access = await AccessRequest.findOne({
+    //     driver: driverId,
+    //     carrierProfile: carrier?._id,
+    //     status: "approved",
+    //   });
+     
+    //      console.log("access",access);
+    //   if (!access || !access.allowedData?.personalInfo) {
+    //     return res.status(403).json({
+    //       message: "personalInfo access not allowed",
+    //     });
+    //   }
+    // }
 
     const driver = await Driver.findById(driverId).populate("user", "email");
 

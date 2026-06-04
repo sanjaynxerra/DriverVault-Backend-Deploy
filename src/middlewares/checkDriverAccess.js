@@ -1,6 +1,7 @@
 const mongoose = require("mongoose");
 const AccessRequest = require("../modules/common/models/accessRequest.model");
 const Carrier = require("../modules/carrier/models/carrier.model");
+const ConsentPreferences = require("../modules/driver/models/consentPreferences.model");
 
 const checkDriverAccess = (resource) => {
   return async (req, res, next) => {
@@ -8,22 +9,33 @@ const checkDriverAccess = (resource) => {
       const { driverId } = req.params;
 
       if (!req.user) {
-        return res.status(401).json({ message: "Unauthorized" });
+        return res.status(401).json({
+          message: "Unauthorized",
+        });
       }
 
-      if (req.user.role !== "carrier" && req.user.role !== "admin") {
-        return res.status(403).json({ message: "Access denied" });
+      if ( req.user.role !== "admin" &&
+        req.user.role !== "carrier" 
+      ) {
+        return res.status(403).json({
+          message: "Access denied",
+        });
       }
 
       if (!mongoose.Types.ObjectId.isValid(driverId)) {
-        return res.status(400).json({ message: "Invalid driver ID" });
+        return res.status(400).json({
+          message: "Invalid driver ID",
+        });
       }
 
+      // Admin bypass
       if (req.user.role === "admin") {
         return next();
       }
 
-      const carrier = await Carrier.findOne({ user: req.user.id });
+      const carrier = await Carrier.findOne({
+        user: req.user.id,
+      });
 
       if (!carrier) {
         return res.status(403).json({
@@ -31,31 +43,34 @@ const checkDriverAccess = (resource) => {
         });
       }
 
-      const access = await AccessRequest.findOne({
-        driver: driverId,
-        carrierProfile: carrier._id,
-        status: "approved",
-        $or: [{ expiresAt: null }, { expiresAt: { $gt: new Date() } }],
-      }).sort({ createdAt: -1 });
+      // Driver current preferences
+        
+      const preferences = await ConsentPreferences.findOne({
+        driverId,
+      });
 
-      if (!access) {
+      if (!preferences) {
         return res.status(403).json({
-          message: "Access not granted or expired",
+          message: "Driver preferences not found",
         });
       }
 
-      if (!access.allowedData || !access.allowedData[resource]) {
+      if (preferences[resource] !== true) {
         return res.status(403).json({
-          message: `${resource} access not allowed`,
+          message: `${resource} sharing disabled by driver`,
         });
       }
-
-      req.access = access;
+   
+      // req.access = access;
       req.carrier = carrier;
 
-      return next();
+      next();
     } catch (error) {
-      console.log("ACCESS CHECK ERROR:", error);
+      console.error(
+        "ACCESS CHECK ERROR:",
+        error
+      );
+
       return res.status(500).json({
         message: "Access validation failed",
       });

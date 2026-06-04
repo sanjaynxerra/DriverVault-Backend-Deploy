@@ -13,7 +13,6 @@ exports.logAudit = async ({
   req,
 }) => {
   try {
-    console.log("targetUser", targetUser);
     
     await AuditLog.create({
       performedBy,

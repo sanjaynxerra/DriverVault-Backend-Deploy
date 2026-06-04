@@ -134,7 +134,7 @@ exports.getDriverPerformanceById = async (req, res) => {
 
     // audit log
     await logAudit({
-      performedBy: req.user._id,
+      performedBy: req.user.id,
 
       role: req.user.role,
 
