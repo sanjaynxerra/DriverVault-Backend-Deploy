@@ -17,11 +17,20 @@ exports.updateCredentialStatus = async (id, status) => {
   );
 };
 
-exports.getActiveCredentialCount = async () =>{
+exports.getActiveCredentialCount = async () => {
   const today = new Date();
 
   return Credential.find({
     status: "verified",
-    expiryDate: { $gte: today }
+    expiryDate: { $gte: today },
   });
-}
+};
+
+exports.getCredentialCountByDriver = async (driverId) => {
+  const today = new Date();
+  return Credential.countDocuments({
+    driver: driverId,
+    status: "verified",
+    expiryDate: { $gte: today },
+  });
+};

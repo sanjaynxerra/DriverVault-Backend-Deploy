@@ -9,7 +9,15 @@ const {
 } = require("../services/users");
 const User = require("../../user/user.model");
 const bcrypt = require("bcrypt");
-const {logAudit } = require("../../../utils/auditLogger")
+const { logAudit } = require("../../../utils/auditLogger");
+const {
+  getDriverPerformanceData,
+} = require("../../driver/services/performance.service");
+const { getDisputeCountByDriver } = require("../../admin/services/dispute");
+const {
+  getCredentialCountByDriver,
+} = require("../../admin/services/credential");
+const { getDriverActivities } = require("../../driver/services/driver");
 
 exports.getUser = async (req, res) => {
   try {
@@ -41,21 +49,65 @@ exports.getUser = async (req, res) => {
 
 exports.getUserById = async (req, res) => {
   try {
-    let userId = req.params.id;
-    let user = await getUserById(userId);
-    if (!user) {
-      return res.status(404).json({ success: false, mesage: "User Not Found" });
+    const { id } = req.params;
+
+    const user = await getUserById(id);
+
+    if (!user || user.length === 0) {
+      return res.status(404).json({
+        success: false,
+        message: "User Not Found",
+      });
     }
 
-    res.status(200).json({
-      success: true,
+    const currentUser = user[0];
+    const profileId = currentUser.profile?._id;
+
+    let scores = null;
+    let disputes = null;
+    let credentials = null;
+    let activity = null;
+
+    if (currentUser.role === "driver") {
+      const [
+        performanceData,
+        disputesCount,
+        credentialCount,
+        driverActivity,
+      ] = await Promise.all([
+        getDriverPerformanceData(profileId),
+        getDisputeCountByDriver(profileId),
+        getCredentialCountByDriver(profileId),
+        getDriverActivities(currentUser?._id),
+      ]);
+
+      scores = performanceData?.scores || [];
+      disputes = disputesCount;
+      credentials = credentialCount;
+      activity = driverActivity;
+    } else if (currentUser.role === "carrier") {
+      activity = await getDriverActivities(currentUser?._id);
+    }
+
+    const userDetails = {
       user,
+      scores,
+      disputes,
+      credentials,
+      activity,
+    };
+
+    return res.status(200).json({
+      success: true,
+      userDetails
     });
   } catch (error) {
-    console.log("error", error);
-    return res
-      .status(500)
-      .json({ success: false, mesage: "Internal Servier error" });
+    console.error("getUserById error:", error);
+
+    return res.status(500).json({
+      success: false,
+      message: "Internal Server Error",
+    });
   }
 };
 
@@ -153,29 +205,26 @@ exports.updateUserByAdmin = async (req, res) => {
       await logAudit({
         performedBy: req.user.id,
         role: req.user.role,
-  
-        action:"SUSPENDED",
-  
+
+        action: "SUSPENDED",
+
         resource: "user",
-  
+
         resourceId: user._id,
-  
+
         targetUser: user._id,
-  
+
         category: "Admin",
-  
+
         message: `${status} User By Admin`,
-  
+
         metadata: {
           userId: user._id,
         },
-  
+
         req,
       });
     }
-    
-    
-        
 
     res.status(200).json({
       success: true,

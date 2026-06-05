@@ -8,7 +8,9 @@ const AccessRequest = require("../../common/models/accessRequest.model");
 const bcrypt = require("bcryptjs");
 const User = require("../../user/user.model");
 const { getDriverPerformanceData } = require("../services/performance.service");
-const  AuditLog  = require("../../common/models/auditLog.model");
+const { getDriverActivities } = require("../services/driver");
+
+
 // ================= PUBLIC PROFILE =================
 exports.getPublicDriverProfile = async (req, res) => {
   try {
@@ -301,17 +303,7 @@ exports.changePassword = async (req, res) => {
 exports.getDriverActivity = async (req, res) => {
   try {
     const  id  = req.user.id;
-
-    const logs = await AuditLog.find({
-      $or: [{ performedBy: id }, { targetUser: id }],
-    })
-      .populate({
-        path: "performedBy",
-        select: "email role",
-      })
-
-      .sort({ createdAt: -1 })
-      .limit(10);
+    let logs = await getDriverActivities(id)
 
     return res.status(200).json({
       success: true,

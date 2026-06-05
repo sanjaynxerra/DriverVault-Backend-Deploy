@@ -133,29 +133,29 @@ exports.getDriverPerformanceById = async (req, res) => {
     );
 
     // audit log
-    await logAudit({
-      performedBy: req.user.id,
+    // await logAudit({
+    //   performedBy: req.user.id,
 
-      role: req.user.role,
+    //   role: req.user.role,
 
-      action: "VIEW_PERFORMANCE",
+    //   action: "VIEW_PERFORMANCE",
 
-      resource: "performance",
+    //   resource: "performance",
 
-      resourceId: driver._id,
+    //   resourceId: driver._id,
 
-      targetUser: driver.user || driver._id,
+    //   targetUser: driver.user || driver._id,
 
-      category: "Access",
+    //   category: "Access",
 
-      message: `${req.user.role} viewed driver performance data`,
+    //   message: `${req.user.role} viewed driver performance data`,
 
-      metadata: {
-        recordsCount: records.length,
-        driverId: driver._id,
-      },
-      req,
-    });
+    //   metadata: {
+    //     recordsCount: records.length,
+    //     driverId: driver._id,
+    //   },
+    //   req,
+    // });
 
     return res.json({
       scores,

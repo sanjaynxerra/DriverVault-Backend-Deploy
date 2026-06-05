@@ -101,3 +101,7 @@ exports.getDisputeActivity = async () =>{
 
   return disputeStats;
 }
+
+exports.getDisputeCountByDriver = async (driverId) =>{
+  return Dispute.countDocuments({driver:driverId})
+}
